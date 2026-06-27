@@ -79,6 +79,7 @@ export default function CertificatePage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [imageLoaded, setImageLoaded] = useState(false);
+    const [signedUrl, setSignedUrl] = useState<string | null>(null);
 
     // Admin Action States
     const [approveId, setApproveId] = useState<string | null>(null);
@@ -147,6 +148,43 @@ export default function CertificatePage() {
         }
     };
 
+    const handleShare = async () => {
+        if (!data) return;
+
+        const shareUrl = `${window.location.origin}/dashboard/verify?id=${data.id}`;
+        const shareText = `Check out my certificate: ${data.title} - Issued by ${data.owner?.institutionname || 'TrueLedger'}`;
+
+        // Try native share API first (works on mobile and some desktop browsers)
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: data.title,
+                    text: shareText,
+                    url: shareUrl,
+                });
+                return;
+            } catch (err) {
+                // User cancelled or share failed, fall through to clipboard
+                if ((err as Error).name !== 'AbortError') {
+                    console.error('Share failed:', err);
+                }
+            }
+        }
+
+        // Fallback: Copy to clipboard
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+
+            // Show success feedback
+            const message = `✓ Share link copied to clipboard!\n\n${shareUrl}\n\nAnyone with this link can verify your certificate.`;
+            alert(message);
+        } catch (err) {
+            console.error('Clipboard failed:', err);
+            // Final fallback: Show the URL in a prompt
+            alert(`Share this link to verify your certificate:\n\n${shareUrl}`);
+        }
+    };
+
     useEffect(() => {
         async function fetchData() {
             try {
@@ -161,21 +199,30 @@ export default function CertificatePage() {
                 }
                 setData(certResult);
 
-                // 2. Fetch Logs (Protected)
+                // 2. Fetch Signed URL for viewing
+                const viewRes = await fetch(`/api/certificates/${id}/view`);
+                if (viewRes.ok) {
+                    const viewResult = await viewRes.json();
+                    if (viewResult.success && viewResult.signedUrl) {
+                        setSignedUrl(viewResult.signedUrl);
+                    }
+                }
+
+                // 3. Fetch Logs (Protected)
                 const logsRes = await fetch(`/api/certificates/${id}/logs`);
                 if (logsRes.ok) {
                     const logsResult = await logsRes.json();
                     setLogs(logsResult.logs || []);
                 }
 
-                // 3. Fetch Timeline (Protected)
+                // 4. Fetch Timeline (Protected)
                 const timelineRes = await fetch(`/api/certificates/${id}/timeline`);
                 if (timelineRes.ok) {
                     const timelineResult = await timelineRes.json();
                     setTimeline(timelineResult.timeline || []);
                 }
 
-                // 4. Fetch QR Code
+                // 5. Fetch QR Code
                 if (certResult.status === 'VERIFIED' || certResult.status === 'APPROVED') {
                     const qrRes = await fetch(`/api/certificates/${id}/qr`);
                     if (qrRes.ok) {
@@ -285,9 +332,10 @@ export default function CertificatePage() {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-8 border-b border-gray-800/50 animate-in fade-in slide-in-from-top-4 duration-700">
                         <div className="space-y-4 flex-1">
                             <div className="flex items-center gap-3 flex-wrap">
-                                <Badge className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 px-4 py-1.5 text-sm font-semibold shadow-lg shadow-emerald-500/20 animate-in fade-in zoom-in duration-500">
-                                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                                <Badge className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 px-4 py-1.5 text-sm font-semibold shadow-lg shadow-emerald-500/20 animate-in fade-in zoom-in duration-500 flex items-center gap-2">
+                                    {data.status === 'REJECTED' ? <XCircle className="w-4 h-4 text-red-500" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
                                     {data.status}
+                                    {data.status === 'REJECTED' && <span className="text-[10px] opacity-70 ml-1 font-mono uppercase bg-red-900/30 px-1 rounded">Not Issued</span>}
                                 </Badge>
                                 <span className="text-xs text-gray-500 font-mono bg-gray-900/50 px-3 py-1.5 rounded-full border border-gray-800">
                                     ID: {data.id.substring(0, 12)}...
@@ -325,21 +373,29 @@ export default function CertificatePage() {
                                                     <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
                                                 </div>
                                             )}
-                                            <img
-                                                src={data.fileUrl}
-                                                alt="Certificate Preview"
-                                                className={`w-full h-full object-contain transition-all duration-700 ${imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
-                                                onLoad={() => setImageLoaded(true)}
-                                            />
+                                            {signedUrl ? (
+                                                <img
+                                                    src={signedUrl}
+                                                    alt="Certificate Preview"
+                                                    className={`w-full h-full object-contain transition-all duration-700 ${imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
+                                                    onLoad={() => setImageLoaded(true)}
+                                                />
+                                            ) : (
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                                                </div>
+                                            )}
                                         </>
                                     ) : (
                                         <div className="text-center p-8 space-y-4">
                                             <FileText className="w-20 h-20 text-gray-600 mx-auto" />
                                             <p className="text-gray-400">Document Preview Available</p>
-                                            <Button variant="outline" onClick={() => window.open(data.fileUrl, '_blank')}>
-                                                <ExternalLink className="w-4 h-4 mr-2" />
-                                                Open Document
-                                            </Button>
+                                            {signedUrl && (
+                                                <Button variant="outline" onClick={() => window.open(signedUrl, '_blank')}>
+                                                    <ExternalLink className="w-4 h-4 mr-2" />
+                                                    Open Document
+                                                </Button>
+                                            )}
                                         </div>
                                     )}
                                     <div className="absolute inset-0 ring-1 ring-inset ring-white/5 pointer-events-none" />
@@ -447,6 +503,7 @@ export default function CertificatePage() {
                                     <Button
                                         variant="outline"
                                         className="w-full border-gray-700 hover:bg-gradient-to-r hover:from-emerald-500/10 hover:to-blue-500/10 hover:border-emerald-500/50 transition-all duration-300 py-6"
+                                        onClick={handleShare}
                                     >
                                         <Share2 className="w-4 h-4 mr-2" />
                                         Share Certificate

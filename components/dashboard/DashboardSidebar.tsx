@@ -23,24 +23,32 @@ import {
   Home,
   Database,
   Building,
+  CheckCircle2
 } from "lucide-react";
 
 interface SidebarProps {
   className?: string;
 }
 
-const navigationItemsBase = [
+
+interface NavItem {
+  title: string;
+  href: string;
+  icon: any;
+  badge?: string;
+}
+
+const navigationItemsBase: NavItem[] = [
   { title: "Overview", href: "/dashboard", icon: Home },
   { title: "Certificates", href: "/dashboard/certificates", icon: Award },
   { title: "Upload", href: "/dashboard/upload", icon: Upload },
   { title: "Verify", href: "/dashboard/verify", icon: Shield },
   { title: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
-  { title: "Students", href: "/dashboard/students", icon: Users, badge: "1.2k" },
+  { title: "Students", href: "/dashboard/students", icon: Users },
   { title: "Reports", href: "/dashboard/reports", icon: FileText },
-  { title: "Search", href: "/dashboard/search", icon: Search },
 ];
 
-const bottomItems = [
+const bottomItems: NavItem[] = [
   { title: "Profile", href: "/dashboard/profile", icon: Users },
   { title: "Settings", href: "/dashboard/settings", icon: Settings },
   { title: "Help", href: "/dashboard/help", icon: HelpCircle },
@@ -49,9 +57,10 @@ const bottomItems = [
 export default function DashboardSidebar({ className }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [certificateCount, setCertificateCount] = useState<string | null>(null);
+  const [adminStats, setAdminStats] = useState<{ pending: number; studentCount: number } | null>(null);
   const pathname = usePathname();
 
-  // Fetch certificate count
+  // Fetch certificate count (Common)
   useEffect(() => {
     async function fetchCertificateCount() {
       try {
@@ -78,50 +87,73 @@ export default function DashboardSidebar({ className }: SidebarProps) {
 
       setLocalUserType(storedType);
       setLocalIsAdmin(storedAdmin);
+
+      // If Admin, fetch admin stats
+      if (storedType === "INSTITUTION") {
+        fetch("/api/admin/dashboard/stats")
+          .then(res => res.json())
+          .then(data => {
+            if (data.totalCertificates !== undefined) {
+              setAdminStats({
+                pending: data.pending,
+                studentCount: data.studentCount
+              });
+            }
+          })
+          .catch(err => console.error("Sidebar stats fetch failed", err));
+      }
     }
   }, []);
-
-  // Inject dynamic badge for certificates
-  let navigationItems = navigationItemsBase.map((item) =>
-    item.title === "Certificates"
-      ? { ...item, badge: certificateCount ?? undefined }
-      : item
-  );
 
   // ------------------------------------------------------------------
   // DYNAMIC NAVIGATION LOGIC
   // ------------------------------------------------------------------
+  // Define visible items based on ROLE
+  let finalNavItems = [];
 
-  if (localUserType === "INSTITUTION" && localIsAdmin) {
-    // ADMIN VIEW
-    navigationItems = navigationItems.map(item => {
-      // Admin Overview
-      if (item.title === "Overview") return { ...item, href: "/dashboard/admin" };
-      // Admin Certificates
-      if (item.title === "Certificates") return { ...item, href: "/dashboard/admin/certificates" };
-      // Admin Students List
-      if (item.title === "Students") return { ...item, href: "/dashboard/admin/students" };
-      return item;
+  if (localUserType === "ADMIN" || localUserType === "INSTITUTION") {
+    // ADMIN VIEW (Full Access)
+    finalNavItems = navigationItemsBase
+      .filter(item => ["Overview", "Certificates", "Students", "Analytics", "Reports", "Verify"].includes(item.title))
+      .map(item => {
+        if (item.title === "Overview") return { ...item, href: "/dashboard/admin" };
+        if (item.title === "Certificates") return { ...item, href: "/dashboard/admin/certificates" };
+        if (item.title === "Students") {
+          return {
+            ...item,
+            href: "/dashboard/admin/students",
+            badge: adminStats?.studentCount ? adminStats.studentCount.toString() : undefined
+          };
+        }
+        return item;
+      });
+
+    // Add Approvals
+    finalNavItems.splice(1, 0, {
+      title: "Approvals",
+      href: "/dashboard/admin/approvals",
+      icon: CheckCircle2,
+      badge: adminStats?.pending && adminStats.pending > 0 ? adminStats.pending.toString() : undefined
     });
   } else if (localUserType === "STUDENT") {
     // STUDENT VIEW
-    navigationItems = navigationItems.map(item => {
-      // Replace "Students" link with "Admin" (Institution Info)
-      if (item.title === "Students") {
-        return {
-          ...item,
-          title: "Admin",
-          href: "/dashboard/institution",
-          icon: Building, // Import this icon
-          badge: undefined
-        };
-      }
-      return item;
-    });
+    // Students see their certificates, reports, AND Verify
+    finalNavItems = navigationItemsBase.filter(item =>
+      ["Overview", "Certificates", "Reports", "Verify"].includes(item.title)
+    );
   } else {
-    // DEFAULT / FALLBACK (e.g. Institution Member but not Admin)
-    // Hide 'Students' possibly if not allowed? For now we leave it or map it.
+    // Default / Fallback - Show basic items + Verify
+    finalNavItems = navigationItemsBase.filter(item =>
+      ["Overview", "Certificates", "Verify"].includes(item.title)
+    );
   }
+
+  // Inject dynamic badge for certificates if applicable
+  const navigationItems = finalNavItems.map((item) =>
+    item.title === "Certificates" && certificateCount
+      ? { ...item, badge: certificateCount }
+      : item
+  );
 
   return (
     <aside

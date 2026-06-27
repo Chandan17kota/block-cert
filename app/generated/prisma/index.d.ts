@@ -35,7 +35,9 @@ export type CertificateLog = $Result.DefaultSelection<Prisma.$CertificateLogPayl
 export namespace $Enums {
   export const Role: {
   INSTITUTION: 'INSTITUTION',
-  STUDENT: 'STUDENT'
+  STUDENT: 'STUDENT',
+  COMPANY: 'COMPANY',
+  ADMIN: 'ADMIN'
 };
 
 export type Role = (typeof Role)[keyof typeof Role]

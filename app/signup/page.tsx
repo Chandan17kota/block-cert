@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -34,10 +35,16 @@ import { signIn } from "next-auth/react";
 
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [userType, setUserType] = useState<"INSTITUTION" | "STUDENT">("INSTITUTION");
+  const [userType, setUserType] = useState<"INSTITUTION" | "STUDENT" | "COMPANY">("INSTITUTION");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+
+  // NEW: Institution dropdown state
+  const [institutions, setInstitutions] = useState<string[]>([]);
+  const [institutionsLoading, setInstitutionsLoading] = useState(false);
+  const [showInstitutionDropdown, setShowInstitutionDropdown] = useState(false);
+  const [institutionSearch, setInstitutionSearch] = useState("");
 
   const router = useRouter();
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -47,6 +54,22 @@ export default function SignupPage() {
       setError("No account found. Please create an account to continue.");
     }
   }, []);
+
+  // NEW: Fetch available institutions when user switches to STUDENT
+  React.useEffect(() => {
+    if (userType === 'STUDENT') {
+      setInstitutionsLoading(true);
+      fetch('/api/institutions')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setInstitutions(data.institutions);
+          }
+        })
+        .catch(err => console.error('Failed to fetch institutions:', err))
+        .finally(() => setInstitutionsLoading(false));
+    }
+  }, [userType]);
 
   const {
     register,
@@ -280,32 +303,17 @@ export default function SignupPage() {
                   <CardDescription className="text-gray-400 mt-2">Start your free trial today. No credit card required.</CardDescription>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 p-1 bg-[rgba(255,255,255,0.02)] rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setUserType("INSTITUTION")}
-                    className={`flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-all ${userType === "INSTITUTION"
-                      ? "bg-emerald-700/20 text-emerald-300 shadow-sm"
-                      : "text-gray-400 hover:text-white"
-                      }`}
-                  >
-                    <Building className="w-4 h-4" />
-                    <span>Institution</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUserType("STUDENT")}
-                    className={`flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-all ${userType === "STUDENT"
-                      ? "bg-emerald-700/20 text-emerald-300 shadow-sm"
-                      : "text-gray-400 hover:text-white"
-                      }`}
-                  >
-                    <GraduationCap className="w-4 h-4" />
-                    <span>Student</span>
-                  </button>
-                </div>
+                <Tabs defaultValue="INSTITUTION" value={userType} onValueChange={(v) => setUserType(v as any)} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 bg-black/40 border border-emerald-900/30">
+                    <TabsTrigger value="STUDENT" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-black">
+                      <GraduationCap className="w-4 h-4 mr-2" /> Student
+                    </TabsTrigger>
+                    <TabsTrigger value="INSTITUTION" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-black">
+                      <Building className="w-4 h-4 mr-2" /> Admin
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </CardHeader>
-
               <CardContent className="space-y-6">
                 {error && (
                   <Alert variant="destructive" className="bg-[rgba(255,40,40,0.06)] border border-red-700/20 text-red-300">
@@ -412,21 +420,85 @@ export default function SignupPage() {
                     {errors.username && <p className="text-sm text-red-600">{errors.username.message}</p>}
                   </div>
 
-                  {/* Use a simple div or Fragment instead of conditional */}
+                  {/* Institution Field - Dropdown for Students, Text Input for Admins */}
                   <div className="space-y-2">
                     <Label htmlFor="institution" className="text-sm font-medium text-gray-300">
-                      {userType === "INSTITUTION" ? "Institution Name" : "Institution to Join"}
+                      {userType === "INSTITUTION" ? "Institution Name" : userType === "COMPANY" ? "Company Name" : "Select Your Institution"}
                     </Label>
                     <div className="relative">
-                      <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                      <Input
-                        id="institution"
-                        placeholder={userType === "INSTITUTION" ? "Harvard University" : "Search for your institution..."}
-                        className="h-11 pl-10 bg-[rgba(255,255,255,0.02)] border border-emerald-900/10 text-white placeholder-gray-500 focus:border-emerald-500 focus:ring-emerald-500"
-                        {...register("institutionname")}
-                      />
+                      <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 z-10" />
+
+                      {userType === "STUDENT" ? (
+                        // STUDENT: Dropdown with autocomplete
+                        <>
+                          <Input
+                            id="institution"
+                            placeholder={institutionsLoading ? "Loading institutions..." : "Search for your institution..."}
+                            className="h-11 pl-10 bg-[rgba(255,255,255,0.02)] border border-emerald-900/10 text-white placeholder-gray-500 focus:border-emerald-500 focus:ring-emerald-500"
+                            value={institutionSearch}
+                            disabled={institutionsLoading}
+                            onChange={(e) => {
+                              setInstitutionSearch(e.target.value);
+                              setValue("institutionname", e.target.value);
+                              setShowInstitutionDropdown(true);
+                            }}
+                            onFocus={() => setShowInstitutionDropdown(true)}
+                          />
+
+                          {showInstitutionDropdown && institutions.length > 0 && (
+                            <div className="absolute z-50 w-full mt-1 max-h-60 overflow-auto bg-black border border-emerald-900/30 rounded-lg shadow-2xl">
+                              {institutions
+                                .filter(inst =>
+                                  inst.toLowerCase().includes(institutionSearch.toLowerCase())
+                                )
+                                .map((inst, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="px-4 py-3 hover:bg-emerald-900/20 cursor-pointer text-white border-b border-emerald-900/10 last:border-b-0 transition-colors"
+                                    onClick={() => {
+                                      setInstitutionSearch(inst);
+                                      setValue("institutionname", inst);
+                                      setShowInstitutionDropdown(false);
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <Building className="w-4 h-4 text-emerald-400" />
+                                      <span>{inst}</span>
+                                    </div>
+                                  </div>
+                                ))
+                              }
+                              {institutions.filter(inst =>
+                                inst.toLowerCase().includes(institutionSearch.toLowerCase())
+                              ).length === 0 && (
+                                  <div className="px-4 py-3 text-gray-400 text-sm">
+                                    No institutions found matching &quot;{institutionSearch}&quot;
+                                  </div>
+                                )}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        // ADMIN/COMPANY: Regular text input
+                        <Input
+                          id="institution"
+                          placeholder={
+                            userType === "INSTITUTION" ? "R V COLLEGE OF ENGINEERING" :
+                              userType === "COMPANY" ? "Acme Corp" :
+                                "Search for your institution..."
+                          }
+                          className="h-11 pl-10 bg-[rgba(255,255,255,0.02)] border border-emerald-900/10 text-white placeholder-gray-500 focus:border-emerald-500 focus:ring-emerald-500"
+                          {...register("institutionname")}
+                        />
+                      )}
                     </div>
                     {errors.institutionname && <p className="text-sm text-red-600">{errors.institutionname.message}</p>}
+
+                    {userType === "STUDENT" && !institutionsLoading && institutions.length === 0 && (
+                      <p className="text-xs text-yellow-400 mt-1">
+                        ⚠️ No institutions available yet. Contact your admin to register first.
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -510,10 +582,10 @@ export default function SignupPage() {
                   </p>
                 </div>
               </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    </div>
+            </Card >
+          </div >
+        </div >
+      </div >
+    </div >
   )
 }

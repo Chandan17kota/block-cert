@@ -4,7 +4,7 @@ import { Role } from "@/app/generated/prisma";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { signupSchema } from "@/app/lib/auth-types";
+import { signupSchema } from "@/lib/auth-types";
 import { serialize } from "cookie";
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "fallback-secret";

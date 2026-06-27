@@ -10,6 +10,8 @@ datasource db {
 enum Role {
   INSTITUTION
   STUDENT
+  COMPANY
+  ADMIN
 }
 
 model User {

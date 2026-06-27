@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import  prisma  from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import QRCode from "qrcode";
 
 export async function GET(
@@ -33,7 +33,10 @@ export async function GET(
       );
     }
 
-    const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify/${certificate.verificationHash}`;
+    // Generate verify URL with fallback
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
+      (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+    const verifyUrl = `${baseUrl}/verify/${certificate.verificationHash}`;
 
     const qr = await QRCode.toDataURL(verifyUrl, {
       width: 300,

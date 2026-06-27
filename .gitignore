@@ -41,3 +41,14 @@ yarn-error.log*
 next-env.d.ts
 
 /generated/prisma
+
+# Python Virtual Environment
+.venv/
+__pycache__/
+*.pyc
+
+# Local Logs and Temp Files
+*.log
+output_log.txt
+test_text.txt
+

@@ -298,7 +298,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // With HttpOnly cookies, we can't validate tokens client-side
       // We need to make a request to the server to check if the session is still valid
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me` || "http://localhost:8000/api/users/me", {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+      // Use relative path if no env var, which works for same-origin (standard Next.js app)
+      const url = baseUrl ? `${baseUrl}/users/me` : "/api/users/me";
+
+      const response = await fetch(url, {
         method: 'GET',
         credentials: 'include' // Include cookies in request
       })

@@ -37,6 +37,7 @@ export default function AdminDashboardPage() {
     const [stats, setStats] = useState<AdminStats | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isExportingReport, setIsExportingReport] = useState(false);
 
     useEffect(() => {
         // Strict local storage check as requested
@@ -91,6 +92,28 @@ export default function AdminDashboardPage() {
             setLoading(false);
         }
     }, [user, authLoading]);
+
+    const handleExportReport = async () => {
+        try {
+            setIsExportingReport(true);
+            const res = await fetch("/api/admin/export-report");
+            if (!res.ok) throw new Error("Failed to export report");
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `admin-report-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (err: any) {
+            alert("Failed to export report: " + err.message);
+        } finally {
+            setIsExportingReport(false);
+        }
+    };
 
     if (authLoading || loading) {
         return (
@@ -195,8 +218,21 @@ export default function AdminDashboardPage() {
                 title="Admin Dashboard"
                 description="Institution overview and management"
             >
-                <Button variant="outline" className="border-emerald-900/30 text-emerald-400 hover:bg-emerald-900/20">
-                    <Download className="w-4 h-4 mr-2" /> Export Report
+                <Button
+                    variant="outline"
+                    className="border-emerald-900/30 text-emerald-400 hover:bg-emerald-900/20"
+                    onClick={handleExportReport}
+                    disabled={isExportingReport || !stats}
+                >
+                    {isExportingReport ? (
+                        <>
+                            <Download className="w-4 h-4 mr-2 animate-spin" /> Exporting...
+                        </>
+                    ) : (
+                        <>
+                            <Download className="w-4 h-4 mr-2" /> Export Report
+                        </>
+                    )}
                 </Button>
                 {/* <Button
                     variant="destructive"

@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       })
     );
 
-    const fileUrl = `https://${process.env.S3_BUCKET}.s3.eu-central-1.amazonaws.com/${key}`;
+    const fileUrl = `https://${process.env.S3_BUCKET}.s3.ap-south-1.amazonaws.com/${key}`;
 
     return NextResponse.json(
       {

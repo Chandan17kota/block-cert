@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/lib/auth-context";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Briefcase, GraduationCap, ShieldCheck } from "lucide-react";
 
 import {
   Award,
@@ -41,6 +42,8 @@ export default function SigninPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("STUDENT"); // Default role
+
   const router = useRouter();
   const { signin, isLoading } = useAuthForm();
 
@@ -57,6 +60,7 @@ export default function SigninPage() {
   });
 
   const onSubmit = async (data: SigninFormData) => {
+    setError(null);
     try {
       const res = await fetch("/api/signin", {
         method: "POST",
@@ -79,24 +83,34 @@ export default function SigninPage() {
         }
       }
 
-      // Store user details in localStorage as requested
-      if (typeof window !== "undefined") {
-        localStorage.setItem("usertype", response.user.usertype || "");
-        localStorage.setItem("isAdmin", response.user.admin ? "true" : "false");
+      // 🔒 STRICT ROLE ENFORCEMENT
+      // If user is trying to login as ADMIN but account says STUDENT, deny it.
+      const userRole = response.user.usertype;
+      if (userRole !== activeTab) {
+        // Allow INSTITUTION to act as ADMIN IF confirmed
+        const isInstitutionAdminProxy = activeTab === 'ADMIN' && userRole === 'INSTITUTION' && response.user.admin;
+
+        if (!isInstitutionAdminProxy) {
+          setError(`Access Denied: You are not registered as a ${activeTab}. Please switch tabs.`);
+          return;
+        }
       }
 
-      if (response.user.usertype === "INSTITUTION") {
-        // Check for admin status if available, or default to admin dashboard for institution type for now if implicit
-        if (response.user.admin) {
-          router.push("/dashboard/admin");
-        } else {
-          // Non-admin institution users (staff?) - currently default to main dashboard or handle accordingly
-          // User request: "if and only if in institution the person is admin then only the admin dashboard be open"
-          router.push("/dashboard");
-        }
-      } else {
-        router.push("/dashboard");
+      // Store user details in localStorage as requested
+      if (typeof window !== "undefined") {
+        localStorage.setItem("usertype", userRole || "");
+        localStorage.setItem("isAdmin", response.user.admin ? "true" : "false");
+        localStorage.setItem("current_role_view", activeTab); // Store which portal they entered
       }
+
+      if (activeTab === "ADMIN") {
+        router.push("/dashboard/admin");
+      } else if (activeTab === "COMPANY") {
+        router.push("/dashboard/verify"); // Companies land on verify
+      } else {
+        router.push("/dashboard"); // Students land on overview
+      }
+
     } catch (error) {
       console.error("Signin error:", error);
 
@@ -165,16 +179,16 @@ export default function SigninPage() {
 
             <Badge variant="secondary" className="px-4 py-2 bg-emerald-950/20 text-emerald-300 border border-emerald-800/30 w-fit">
               <Sparkles className="w-4 h-4 mr-2" />
-              Welcome back to TrueLedger
+              Secure Role-Based Access
             </Badge>
 
             <h1 className="text-4xl lg:text-5xl font-mono font-bold leading-tight">
               <span className="text-white">Sign in</span>
-              <span className="block text-gradient">to your account</span>
+              <span className="block text-gradient">to your portal</span>
             </h1>
 
             <p className="text-lg text-gray-400 max-w-xl">
-              Access your decentralized certificate dashboard with enterprise-grade security & instant verification.
+              Strictly regulated access for Students, Admin, and Verifiers. Choose your portal to proceed.
             </p>
 
             {/* FEATURE GRID */}
@@ -201,12 +215,24 @@ export default function SigninPage() {
                 <div className="text-center">
                   <CardTitle className="text-3xl font-mono font-semibold text-white">Welcome Back</CardTitle>
                   <CardDescription className="text-gray-400 mt-2">
-                    Sign in to access your dashboard
+                    Select your role to continue
                   </CardDescription>
                 </div>
               </CardHeader>
 
               <CardContent className="space-y-6">
+
+                {/* ROLE TABS */}
+                <Tabs defaultValue="STUDENT" onValueChange={setActiveTab} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 bg-black/40 border border-emerald-900/30">
+                    <TabsTrigger value="STUDENT" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-black">
+                      <GraduationCap className="w-4 h-4 mr-2" /> Student
+                    </TabsTrigger>
+                    <TabsTrigger value="ADMIN" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-black">
+                      <Briefcase className="w-4 h-4 mr-2" /> Admin
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
 
                 {/* ERROR BANNER */}
                 {error && (
@@ -216,28 +242,37 @@ export default function SigninPage() {
                   </Alert>
                 )}
 
-                {/* GOOGLE BUTTON */}
-                <Button
-                  variant="outline"
-                  className="w-full h-11 border-gray-700 text-gray-300 hover:bg-gray-900 flex items-center justify-center"
-                  onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-                >
-                  <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" aria-hidden>
-                    <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                    <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                  </svg>
-                  Continue with Google
-                </Button>
+                {/* GOOGLE SIGN IN */}
+                <div className="space-y-3">
+                  <Button
+                    variant="outline"
+                    className="w-full h-11 text-emerald-300 border border-emerald-800/30 hover:bg-emerald-900/10 hover:border-emerald-500/50 transition-all duration-300"
+                    type="button"
+                    onClick={() => {
+                      // Set cookie to remember user type selection for implicit role check on callback
+                      document.cookie = `signup-usertype=${encodeURIComponent(activeTab)}; path=/; max-age=300; SameSite=Lax`;
 
-                {/* SEPARATOR */}
+                      signIn("google", {
+                        callbackUrl: "/dashboard",
+                      });
+                    }}
+                  >
+                    <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                      <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                    </svg>
+                    Continue with Google
+                  </Button>
+                </div>
+
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-gray-700" />
+                    <span className="w-full border-t border-gray-900/20" />
                   </div>
                   <div className="relative flex justify-center text-sm">
-                    <span className="px-4 bg-black text-gray-500">Or continue with email</span>
+                    <span className="px-4 bg-black/60 text-gray-400">Or continue with email</span>
                   </div>
                 </div>
 
@@ -292,18 +327,6 @@ export default function SigninPage() {
                     )}
                   </div>
 
-                  {/* REMEMBER ME */}
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      checked={rememberMe}
-                      onCheckedChange={(v) => setRememberMe(v as boolean)}
-                      id="remember"
-                    />
-                    <Label htmlFor="remember" className="text-sm text-gray-400">
-                      Remember me for 30 days
-                    </Label>
-                  </div>
-
                   {/* SUBMIT */}
                   <Button
                     type="submit"
@@ -315,20 +338,9 @@ export default function SigninPage() {
                     ) : (
                       <ArrowRight className="w-5 h-5 mr-2" />
                     )}
-                    {isLoading ? "Signing in..." : "Sign In"}
+                    {isLoading ? "Signing in..." : `Sign In as ${activeTab?.charAt(0) + activeTab?.slice(1).toLowerCase()}`}
                   </Button>
                 </form>
-
-                {/* SECURITY NOTE */}
-                <div className="bg-emerald-900/10 border border-emerald-800/30 rounded-lg p-4">
-                  <div className="flex items-start space-x-3">
-                    <Shield className="w-5 h-5 text-emerald-400 mt-0.5" />
-                    <div className="text-sm text-gray-300">
-                      <p className="font-medium text-emerald-300 mb-1">Secure Sign-In</p>
-                      <p>Protected with industry-standard encryption and MFA-ready architecture.</p>
-                    </div>
-                  </div>
-                </div>
 
                 {/* FOOTER LINK */}
                 <div className="text-center pt-4 border-t border-gray-800">

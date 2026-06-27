@@ -145,26 +145,7 @@ export default function DashboardHeader({
           )}
         </div>
 
-        {/* SEARCH */}
-        <div className="flex-1 max-w-md mx-8 hidden md:block">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search certificates, students..."
-              className="pl-10 pr-8 h-10 bg-black/40 border-gray-800 text-gray-200 placeholder-gray-500 focus:border-emerald-500 focus:ring-emerald-500"
-            />
-            {searchQuery && (
-              <button
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
-                onClick={() => setSearchQuery("")}
-              >
-                ×
-              </button>
-            )}
-          </div>
-        </div>
+
 
         {/* RIGHT */}
         <div className="flex items-center gap-4">
@@ -175,11 +156,21 @@ export default function DashboardHeader({
               children
             ) : (
               <>
-                <Button size="sm" variant="outline" className="border-emerald-800/30 text-emerald-300">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-emerald-800/30 text-emerald-300 hover:bg-emerald-900/20"
+                  onClick={() => router.push("/dashboard/verify")}
+                >
                   <Zap className="w-3 h-3 mr-1" />
                   Quick Scan
                 </Button>
-                <Button size="sm" variant="outline" className="border-emerald-800/30 text-emerald-300">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-emerald-800/30 text-emerald-300 hover:bg-emerald-900/20"
+                  onClick={() => router.push("/dashboard/upload")}
+                >
                   <Award className="w-3 h-3 mr-1" />
                   New Certificate
                 </Button>

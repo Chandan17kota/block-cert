@@ -22,13 +22,10 @@ interface CertificateData {
   id: string;
   title: string;
   description: string;
-  issuedAt: string;
+  createdAt: string;
   fileUrl: string;
-  owner: {
-    fullName: string;
-    email: string;
-    institutionname: string | null;
-  };
+  issuedBy: string;
+  issuedTo: string;
 }
 
 export default function VerificationResultPage() {
@@ -64,6 +61,26 @@ export default function VerificationResultPage() {
 
     if (hash) verify();
   }, [hash]);
+
+  const handleViewDocument = async () => {
+    if (!data) return;
+
+    try {
+      const res = await fetch(`/api/public/certificates/${data.id}/view`);
+      if (!res.ok) {
+        alert("Failed to load document. Please try again.");
+        return;
+      }
+
+      const result = await res.json();
+      if (result.success && result.signedUrl) {
+        window.open(result.signedUrl, '_blank');
+      }
+    } catch (error) {
+      console.error("View document error:", error);
+      alert("Failed to load document. Please try again.");
+    }
+  };
 
   if (loading) {
     return (
@@ -127,7 +144,7 @@ export default function VerificationResultPage() {
                 Verified & Authentic
               </Badge>
               <h1 className="text-4xl font-bold text-white">{data?.title}</h1>
-              <p className="text-gray-400">Issued to {data?.owner.fullName}</p>
+              <p className="text-gray-400">Issued to {data?.issuedTo}</p>
             </div>
 
             {/* Main Certificate Card */}
@@ -144,15 +161,14 @@ export default function VerificationResultPage() {
                     <div className="flex items-center text-sm text-gray-500 mb-1">
                       <User className="w-4 h-4 mr-2" /> Recipient
                     </div>
-                    <p className="text-lg font-medium text-white">{data?.owner.fullName}</p>
-                    <p className="text-sm text-gray-400">{data?.owner.email}</p>
+                    <p className="text-lg font-medium text-white">{data?.issuedTo}</p>
                   </div>
 
                   <div className="space-y-1">
                     <div className="flex items-center text-sm text-gray-500 mb-1">
                       <Building className="w-4 h-4 mr-2" /> Institution
                     </div>
-                    <p className="text-lg font-medium text-white">{data?.owner.institutionname || "TrueLedger Academy"}</p>
+                    <p className="text-lg font-medium text-white">{data?.issuedBy || "TrueLedger Academy"}</p>
                     <Badge variant="outline" className="border-emerald-800 text-emerald-500 text-xs">Verified Issuer</Badge>
                   </div>
 
@@ -161,7 +177,7 @@ export default function VerificationResultPage() {
                       <Calendar className="w-4 h-4 mr-2" /> Issue Date
                     </div>
                     <p className="text-lg font-medium text-white">
-                      {data?.issuedAt ? new Date(data.issuedAt).toLocaleDateString(undefined, {
+                      {data?.createdAt ? new Date(data.createdAt).toLocaleDateString(undefined, {
                         year: 'numeric', month: 'long', day: 'numeric'
                       }) : "Unknown"}
                     </p>
@@ -188,7 +204,7 @@ export default function VerificationResultPage() {
 
                 {/* Actions */}
                 <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                  <Button className="flex-1 bg-emerald-600 hover:bg-emerald-500 h-12 text-lg" onClick={() => window.open(data?.fileUrl, '_blank')}>
+                  <Button className="flex-1 bg-emerald-600 hover:bg-emerald-500 h-12 text-lg" onClick={handleViewDocument}>
                     <Download className="w-5 h-5 mr-2" /> View Original Document
                   </Button>
                   <Button variant="outline" className="flex-1 border-gray-700 h-12 text-lg hover:bg-gray-800">

@@ -49,7 +49,28 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(certificate);
+    // 🪣 Generate Signed URL for viewing
+    // This fixes broken/wrong-region URLs stored in the DB by dynamically generating a valid link
+    let signedUrl = certificate.fileUrl;
+    try {
+      if (certificate.s3Key) {
+        const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
+        const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+        const { s3 } = await import("@/app/lib/s3");
+
+        const command = new GetObjectCommand({
+          Bucket: process.env.S3_BUCKET || process.env.AWS_S3_BUCKET!,
+          Key: certificate.s3Key,
+        });
+
+        signedUrl = await getSignedUrl(s3, command, { expiresIn: 3600 }); // 1 hour
+      }
+    } catch (e) {
+      console.error("Failed to sign URL:", e);
+      // Fallback to stored URL
+    }
+
+    return NextResponse.json({ ...certificate, fileUrl: signedUrl });
   } catch (error) {
     console.error("Get certificate error:", error);
     return NextResponse.json(
@@ -105,10 +126,21 @@ export async function PATCH(
       );
     }
 
-    // 🔐 Ownership check
-    if (certificate.ownerId !== user.id) {
+    // 🔐 Access Check: Either the Owner or an Institution Admin of the same institution
+    const isOwner = certificate.ownerId === user.id;
+
+    // Fetch owner to check institution
+    const certificateOwner = await prisma.user.findUnique({
+      where: { id: certificate.ownerId },
+      select: { institutionname: true }
+    });
+
+    const isInstitutionAdmin = (user.usertype === "INSTITUTION" || user.usertype === "ADMIN") &&
+      user.institutionname === certificateOwner?.institutionname;
+
+    if (!isOwner && !isInstitutionAdmin) {
       return NextResponse.json(
-        { message: "Access denied" },
+        { message: "Access denied: You don't have permission to update this certificate" },
         { status: 403 }
       );
     }
@@ -130,6 +162,19 @@ export async function PATCH(
         status,
         verificationHash,
       },
+    });
+
+    // ✅ Add Activity Log
+    await prisma.certificateLog.create({
+      data: {
+        certificateId: certificate.id,
+        action: status === "APPROVED" || status === "VERIFIED" ? "CERTIFICATE_VERIFIED" : "CERTIFICATE_REJECTED",
+        performedById: user.id,
+        metadata: {
+          newStatus: status,
+          previousStatus: certificate.status
+        }
+      }
     });
 
     return NextResponse.json({

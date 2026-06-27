@@ -190,7 +190,9 @@ exports.Prisma.JsonNullValueFilter = {
 };
 exports.Role = exports.$Enums.Role = {
   INSTITUTION: 'INSTITUTION',
-  STUDENT: 'STUDENT'
+  STUDENT: 'STUDENT',
+  COMPANY: 'COMPANY',
+  ADMIN: 'ADMIN'
 };
 
 exports.CertificateStatus = exports.$Enums.CertificateStatus = {

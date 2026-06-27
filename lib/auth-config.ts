@@ -7,8 +7,8 @@ import { cookies } from "next/headers";
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID || (() => { console.warn("GOOGLE_CLIENT_ID is missing"); return ""; })(),
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || (() => { console.warn("GOOGLE_CLIENT_SECRET is missing"); return ""; })(),
     }),
   ],
   session: {
@@ -59,7 +59,7 @@ export const authOptions: NextAuthOptions = {
               username,
               password: null, // No password for OAuth users
               securityId: crypto.randomUUID(),
-              usertype: (userType === "INSTITUTION" || userType === "STUDENT") ? userType : "STUDENT",
+              usertype: (userType === "INSTITUTION" || userType === "STUDENT" || userType === "COMPANY") ? userType : "STUDENT",
               institutionname: userType === "INSTITUTION" ? (cookieStore.get("signup-institutionname")?.value ? decodeURIComponent(cookieStore.get("signup-institutionname")!.value) : null) : null,
             },
           });

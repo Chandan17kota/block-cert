@@ -33,6 +33,7 @@ export async function GET() {
       rejected,
       verified,
       todayUploads,
+      studentCount,
     ] = await Promise.all([
       prisma.certificate.count({
         where: { owner: { institutionname: institution } },
@@ -69,6 +70,12 @@ export async function GET() {
           },
         },
       }),
+      prisma.user.count({
+        where: {
+          usertype: "STUDENT",
+          institutionname: institution,
+        }
+      }),
     ]);
 
     const successRate =
@@ -81,6 +88,7 @@ export async function GET() {
       rejected,
       verified,
       todayUploads,
+      studentCount,
       successRate,
     });
   } catch (error) {

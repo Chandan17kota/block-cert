@@ -2,6 +2,7 @@
 
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
+import AIChatbot from "@/components/dashboard/AIChatbot";
 
 export default function DashboardLayout({
     children,
@@ -20,6 +21,8 @@ export default function DashboardLayout({
                 <div className="flex-1 flex flex-col min-w-0">
                     {children}
                 </div>
+
+
             </div>
         </ProtectedRoute>
     );

@@ -56,10 +56,15 @@ export async function GET(
     }
 
     // 🪣 Generate signed URL
+    const ext = certificate.s3Key.split('.').pop() || 'png';
+    // Remove characters that might break content-disposition
+    const cleanTitle = (certificate.title || "certificate").replace(/[^a-zA-Z0-9-_ ]/g, "").trim();
+    const filename = `${cleanTitle}.${ext}`;
+
     const command = new GetObjectCommand({
-      Bucket: process.env.AWS_S3_BUCKET!,
+      Bucket: process.env.S3_BUCKET || process.env.AWS_S3_BUCKET!,
       Key: certificate.s3Key,
-      ResponseContentDisposition: `attachment; filename="${certificate.title || "certificate"}"`,
+      ResponseContentDisposition: `attachment; filename="${filename}"`,
     });
 
     const signedUrl = await getSignedUrl(s3, command, {

@@ -1,0 +1,11 @@
+paddlepaddle
+paddleocr
+torch
+torchvision
+timm
+transformers
+scikit-learn
+numpy<2
+opencv-python-headless
+Pillow
+easyocr
